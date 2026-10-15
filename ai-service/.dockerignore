@@ -1,0 +1,8 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+temp_uploads/
+models/*.pt
+models/*.pth
+.git/

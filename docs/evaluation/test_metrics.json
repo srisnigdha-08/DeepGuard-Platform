@@ -1,0 +1,52 @@
+{
+  "checkpoint": "models\\efficientnet_b4_deepfake.pt",
+  "checkpoint_epoch": 34,
+  "checkpoint_phase": 3,
+  "validation_auc_recorded": 0.8766099999999999,
+  "test_dataset": "datasets/processed/metadata/test_labels.csv",
+  "total_samples": 4991,
+  "real_samples": 1000,
+  "fake_samples": 3991,
+  "threshold": 0.5,
+  "accuracy": 0.7968,
+  "roc_auc": 0.8853,
+  "pr_auc": 0.9686,
+  "test_loss": 0.4374,
+  "precision_fake": 0.945,
+  "recall_fake_sensitivity": 0.792,
+  "specificity": 0.816,
+  "f1_fake": 0.8618,
+  "precision_real": 0.4957,
+  "recall_real": 0.816,
+  "f1_real": 0.6168,
+  "tp": 3161,
+  "tn": 816,
+  "fp": 184,
+  "fn": 830,
+  "confusion_matrix": [
+    [
+      816,
+      184
+    ],
+    [
+      830,
+      3161
+    ]
+  ],
+  "prob_stats": {
+    "min": 0.00064,
+    "max": 1.0,
+    "mean_overall": 0.64459,
+    "std_overall": 0.33385,
+    "mean_real": 0.26089,
+    "std_real": 0.25027,
+    "mean_fake": 0.74073,
+    "std_fake": 0.27849,
+    "p25": 0.34875,
+    "median": 0.76855,
+    "p75": 0.9502
+  },
+  "inference_duration_sec": 56.96,
+  "inference_fps": 87.6,
+  "corrupted_samples": 0
+}

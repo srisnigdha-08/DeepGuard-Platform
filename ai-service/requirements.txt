@@ -1,0 +1,22 @@
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+pydantic==2.7.1
+pydantic-settings==2.3.0
+torch==2.3.0+cu121
+torchvision==0.18.0+cu121
+--extra-index-url https://download.pytorch.org/whl/cu121
+opencv-python-headless==4.9.0.80
+mediapipe==0.10.14
+Pillow==10.3.0
+librosa==0.10.2
+soundfile==0.12.1
+numpy==1.26.4
+pandas==2.2.2
+matplotlib==3.9.0
+seaborn==0.13.2
+scikit-learn==1.5.0
+albumentations==1.4.7
+tqdm==4.66.4
+python-multipart==0.0.9
+aiofiles==23.2.1
+python-dotenv==1.0.1

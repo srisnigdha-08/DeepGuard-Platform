@@ -1,0 +1,38 @@
+services:
+  mongodb:
+    image: mongo:7
+    ports: ["27017:27017"]
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+  client:
+    build: { context: ./client, dockerfile: Dockerfile.dev }
+    ports: ["3000:3000"]
+    volumes: ["./client/src:/app/src"]
+    environment: [VITE_API_URL=http://localhost:5000/api]
+    depends_on: [server]
+
+  server:
+    build: { context: ./server }
+    ports: ["5000:5000"]
+    env_file: ["./server/.env"]
+    volumes: ["./server/uploads:/app/uploads"]
+    depends_on:
+      - mongodb
+      - ai-service
+
+  ai-service:
+    build: { context: ./ai-service }
+    ports: ["8000:8000"]
+    env_file: ["./ai-service/.env"]
+    volumes: ["./ai-service/models:/app/models"]
+    healthcheck:
+      test: ["CMD","curl","-f","http://localhost:8000/health"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  mongo_data:

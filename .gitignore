@@ -1,0 +1,107 @@
+# Dependencies
+node_modules/
+*/node_modules/
+package-lock.json.bak
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Python & Virtual Environments
+venv/
+.venv/
+*/venv/
+*/.venv/
+__pycache__/
+*/__pycache__/
+*/**/__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+.pytest_cache/
+
+# Environment Variables & Secrets (Keep only .env.example)
+.env
+.env.*
+!.env.example
+*.env
+*.env.*
+!*.env.example
+server/.env.production
+ai-service/.env.production
+
+# Build and Distribution Artifacts
+dist/
+build/
+*/dist/
+*/build/
+out/
+
+# Logs & Audit files
+logs/
+*.log
+*/logs/
+*.audit.json
+.*-audit.json
+
+# Test Coverage & Tool Cache
+coverage/
+htmlcov/
+.coverage
+.coverage.*
+clover.xml
+coverage-final.json
+lcov.info
+
+# Runtime Uploads & Generated Media (Preserve structure via .gitkeep)
+uploads/*
+!uploads/.gitkeep
+*/uploads/*
+!*/uploads/.gitkeep
+!*/uploads/heatmaps/.gitkeep
+!*/uploads/temp/.gitkeep
+
+temp_uploads/*
+!temp_uploads/.gitkeep
+*/temp_uploads/*
+!*/temp_uploads/.gitkeep
+
+static/heatmaps/*
+!static/heatmaps/.gitkeep
+*/static/heatmaps/*
+!*/static/heatmaps/.gitkeep
+
+# Model Weights & Large Checkpoints (Download or train separately)
+models/*.pt
+models/*.pth
+models/*.bin
+models/*.onnx
+models/*.h5
+*/models/*.pt
+*/models/*.pth
+*/models/*.bin
+*/models/*.onnx
+*/models/*.h5
+!models/.gitkeep
+!*/models/.gitkeep
+
+# Datasets & Training Dumps
+datasets/
+*/datasets/
+Datasets/
+*/Datasets/
+data/
+*/data/
+
+# OS & Editor Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Cloud / Tunnel temp files
+.vercel/
+ngrok.log
