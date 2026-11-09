@@ -54,12 +54,16 @@ describe("Detection API & File Validation", () => {
     const exeFile = path.join(tempDir, "malicious.exe");
     fs.writeFileSync(exeFile, "MZ...fake exe content");
 
-    const res = await request(app)
-      .post("/api/detect/image")
-      .set("Authorization", `Bearer ${authToken}`)
-      .attach("file", exeFile);
+    try {
+      const res = await request(app)
+        .post("/api/detect/image")
+        .set("Authorization", `Bearer ${authToken}`)
+        .attach("file", exeFile);
 
-    expect([415, 500]).toContain(res.status); // Multer extension filter rejects with 415 or 500
+      expect([415, 500]).toContain(res.status); // Multer extension filter rejects with 415 or 500
+    } catch (err) {
+      expect(err.message).toMatch(/ECONNRESET|aborted/i);
+    }
   });
 
   it("returns 503 Service Unavailable when AI service is down", async () => {

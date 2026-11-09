@@ -60,12 +60,10 @@ app.use(hpp({ whitelist: ["tags", "sort"] }));
 app.use(compression({ level: 6, threshold: 1024 }));
 app.use(requestLogger);
 
-// Serve heatmap images directly from Node (small static files)
+// Serve heatmap images with authentication and ownership verification (biometric privacy)
 // Restricted specifically to heatmaps — NEVER expose uploads/temp to public access
-app.use(
-  "/uploads/heatmaps",
-  express.static(path.join(__dirname, "../uploads/heatmaps"), { maxAge: "7d" }),
-);
+const { serveProtectedHeatmap } = require("./middleware/heatmapGuard");
+app.get("/uploads/heatmaps/:filename", serveProtectedHeatmap);
 
 // Clean any orphaned temp files on startup and periodically (non-blocking, unref)
 const { startPeriodicTempCleaner } = require("./utils/tempCleaner");

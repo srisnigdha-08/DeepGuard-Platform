@@ -106,6 +106,9 @@ detectionResultSchema.index({ userId: 1, createdAt: -1 });
 detectionResultSchema.index({ userId: 1, mediaType: 1, createdAt: -1 });
 detectionResultSchema.index({ userId: 1, verdict: 1 });
 detectionResultSchema.index({ userId: 1, isDeleted: 1, createdAt: -1 });
+detectionResultSchema.index({ userId: 1, isDeleted: 1, mediaType: 1, createdAt: -1 });
+detectionResultSchema.index({ userId: 1, isDeleted: 1, verdict: 1, createdAt: -1 });
+detectionResultSchema.index({ userId: 1, isDeleted: 1, status: 1, createdAt: -1 });
 detectionResultSchema.index({ status: 1, createdAt: -1 });
 
 module.exports = mongoose.model("DetectionResult", detectionResultSchema);

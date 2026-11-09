@@ -35,4 +35,19 @@ export const detectionService = {
     const { data } = await api.get(`/detect/result/${id}`);
     return data.data;
   },
+
+  getHeatmapBlob: async (heatmapUrl) => {
+    let cleanPath = heatmapUrl;
+    if (typeof cleanPath === "string" && cleanPath.startsWith("http")) {
+      try {
+        cleanPath = new URL(cleanPath).pathname;
+      } catch (_) {}
+    }
+    const serverRoot = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api\/?$/, "");
+    const res = await api.get(cleanPath, {
+      baseURL: serverRoot,
+      responseType: "blob",
+    });
+    return res.data;
+  },
 };

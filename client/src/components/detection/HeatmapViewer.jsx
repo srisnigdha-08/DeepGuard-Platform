@@ -1,26 +1,64 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Eye, EyeOff, Download, ZoomIn } from "lucide-react";
+import { Eye, EyeOff, Download, ZoomIn, Loader2, AlertCircle } from "lucide-react";
+import { detectionService } from "../../services/detectionService";
 
 /**
  * Interactive Grad-CAM heatmap viewer.
  *
- * WHY base64 over URL for heatmap?
- * Base64 arrives inline with the API response — no second HTTP request.
- * For large deployments, switch to pre-signed S3 URLs to avoid bloating
- * the JSON payload (base64 is ~33% larger than binary).
+ * Supports inline base64 payloads as well as authenticated protected heatmap endpoints.
+ * Automatically fetches protected heatmap blobs with Authorization headers and releases
+ * object URLs on unmount/update to prevent memory leaks.
  */
 export default function HeatmapViewer({ faceBase64, heatmapBase64, heatmapUrl, regions = [] }) {
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [zoomed, setZoomed] = useState(false);
-  const rawSrc = showHeatmap ? (heatmapBase64 || heatmapUrl) : (faceBase64 || heatmapBase64 || heatmapUrl);
-  const isDataUri = rawSrc?.startsWith("data:");
-  const isUrl = rawSrc?.startsWith("http") || rawSrc?.startsWith("/uploads") || rawSrc?.startsWith("blob:");
-  const imgSrc = rawSrc
-    ? (isDataUri || isUrl
-        ? rawSrc
-        : `data:image/jpeg;base64,${rawSrc}`)
+  const [blobUrl, setBlobUrl] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState(null);
+
+  // Active base64 selection
+  const activeBase64 = showHeatmap ? (heatmapBase64 || faceBase64) : (faceBase64 || heatmapBase64);
+  const activeDataUri = activeBase64
+    ? (activeBase64.startsWith("data:") || activeBase64.startsWith("blob:")
+        ? activeBase64
+        : `data:image/jpeg;base64,${activeBase64}`)
     : null;
+
+  // When no inline base64 is present but a protected heatmapUrl is provided, fetch via authenticated API
+  useEffect(() => {
+    if (activeDataUri || !heatmapUrl) {
+      return;
+    }
+
+    let isMounted = true;
+    let createdUrl = null;
+    setLoading(true);
+    setFetchError(null);
+
+    detectionService
+      .getHeatmapBlob(heatmapUrl)
+      .then((blob) => {
+        if (!isMounted) return;
+        createdUrl = URL.createObjectURL(blob);
+        setBlobUrl(createdUrl);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (!isMounted) return;
+        setFetchError("Unable to load protected heatmap");
+        setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+      if (createdUrl) {
+        URL.revokeObjectURL(createdUrl);
+      }
+    };
+  }, [activeDataUri, heatmapUrl, showHeatmap]);
+
+  const imgSrc = activeDataUri || blobUrl;
 
   const download = () => {
     if (!imgSrc) return;
@@ -46,7 +84,7 @@ export default function HeatmapViewer({ faceBase64, heatmapBase64, heatmapUrl, r
           <button onClick={() => setZoomed(v => !v)} className="btn-ghost py-1.5 px-2.5">
             <ZoomIn size={14} />
           </button>
-          <button onClick={download} className="btn-ghost py-1.5 px-2.5">
+          <button onClick={download} disabled={!imgSrc} className="btn-ghost py-1.5 px-2.5 disabled:opacity-50">
             <Download size={14} />
           </button>
         </div>
@@ -56,9 +94,19 @@ export default function HeatmapViewer({ faceBase64, heatmapBase64, heatmapUrl, r
       <div className={`relative rounded-lg overflow-hidden bg-surface-100 border border-surface-300 ${zoomed ? "cursor-zoom-out" : "cursor-zoom-in"}`}
            onClick={() => setZoomed(v => !v)}>
         <AnimatePresence mode="wait">
-          {imgSrc ? (
+          {loading ? (
+            <div className="h-48 flex flex-col items-center justify-center gap-2 text-text-muted text-sm">
+              <Loader2 className="animate-spin text-accent-cyan" size={24} />
+              <span>Loading protected heatmap...</span>
+            </div>
+          ) : fetchError ? (
+            <div className="h-48 flex flex-col items-center justify-center gap-1.5 text-danger text-sm">
+              <AlertCircle size={20} />
+              <span>{fetchError}</span>
+            </div>
+          ) : imgSrc ? (
             <motion.img
-              key={showHeatmap ? "hm" : "orig"}
+              key={showHeatmap ? (imgSrc.slice(-15) + "_hm") : (imgSrc.slice(-15) + "_orig")}
               src={imgSrc}
               alt={showHeatmap ? "Grad-CAM heatmap" : "Original face crop"}
               initial={{ opacity: 0 }}

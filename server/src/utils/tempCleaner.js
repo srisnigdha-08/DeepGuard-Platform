@@ -127,9 +127,11 @@ function startPeriodicTempCleaner(
   }
   // Run an immediate sweep on initialization
   cleanOrphanedTempFiles(tempDir, maxAgeMs);
+  cleanupStaleProcessingRecords().catch(() => {});
 
   periodicInterval = setInterval(() => {
     cleanOrphanedTempFiles(tempDir, maxAgeMs);
+    cleanupStaleProcessingRecords().catch(() => {});
   }, intervalMs);
 
   // Unref ensures the timer does not keep Node.js or test processes alive
@@ -146,10 +148,35 @@ function stopPeriodicTempCleaner() {
   }
 }
 
+/**
+ * Finds and updates records that were left in 'processing' status due to unexpected
+ * server restart or unhandled crash. Marks them 'failed' to prevent hanging states in history.
+ */
+async function cleanupStaleProcessingRecords(maxAgeMs = 60 * 60 * 1000) {
+  try {
+    const mongoose = require("mongoose");
+    if (mongoose.connection.readyState !== 1) return { modifiedCount: 0 };
+    const DetectionResult = require("../models/DetectionResult");
+    const cutoff = new Date(Date.now() - maxAgeMs);
+    const res = await DetectionResult.updateMany(
+      { status: "processing", createdAt: { $lt: cutoff } },
+      { status: "failed", errorMessage: "Analysis abandoned due to server timeout or process restart" }
+    );
+    if (res.modifiedCount > 0) {
+      logger.info(`Cleaned up ${res.modifiedCount} stale detection records stuck in processing state`);
+    }
+    return res;
+  } catch (err) {
+    logger.warn(`Stale processing records cleanup encountered an error: ${err.message}`);
+    return { modifiedCount: 0 };
+  }
+}
+
 module.exports = {
   cleanOrphanedTempFiles,
   startPeriodicTempCleaner,
   stopPeriodicTempCleaner,
+  cleanupStaleProcessingRecords,
   registerActiveTempFile,
   unregisterActiveTempFile,
   isTempFileActive,
