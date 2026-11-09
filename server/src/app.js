@@ -61,15 +61,19 @@ app.use(compression({ level: 6, threshold: 1024 }));
 app.use(requestLogger);
 
 // Serve heatmap images directly from Node (small static files)
+// Restricted specifically to heatmaps — NEVER expose uploads/temp to public access
 app.use(
-  "/uploads",
-  express.static(path.join(__dirname, "../uploads"), { maxAge: "7d" }),
+  "/uploads/heatmaps",
+  express.static(path.join(__dirname, "../uploads/heatmaps"), { maxAge: "7d" }),
 );
 
+// Clean any orphaned temp files on startup and periodically (non-blocking, unref)
+const { startPeriodicTempCleaner } = require("./utils/tempCleaner");
+startPeriodicTempCleaner();
+
 // Rate limiters scoped to their risk level
-app.use("/api/auth", authLimiter); // 10 req/15 min — auth brute-force protection
-// app.use("/api/detect", uploadLimiter); // 20 uploads/hr per user
-app.use("/api", apiLimiter); // 100 req/15 min general
+app.use("/api/auth", authLimiter); // auth brute-force protection
+app.use("/api", apiLimiter); // general API rate limiter
 
 // Feature routes
 app.use("/api/auth", require("./routes/auth.routes"));

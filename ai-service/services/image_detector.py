@@ -4,12 +4,23 @@ import numpy as np
 import time
 import base64
 import logging
+from PIL import Image, UnidentifiedImageError, ImageFile
 
 from preprocessing.face_extractor import FaceExtractor
 from services.explainability import GradCAM
 from app.core.gpu_config import VRAMOptimizer
 
 logger = logging.getLogger(__name__)
+
+# Ensure truncated/malformed files do not hang the decoder
+ImageFile.LOAD_TRUNCATED_IMAGES = False
+
+# Maximum permitted image dimensions and pixel count (16 Megapixels)
+MAX_IMAGE_DIMENSION = 4096
+MAX_IMAGE_PIXELS = 16_000_000
+
+# PIL built-in decompression bomb ceiling
+Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 
 IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
 IMAGENET_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
@@ -25,6 +36,24 @@ class ImageDeepFakeDetector:
         VRAMOptimizer.configure()
 
     def _preprocess(self, image_path: str):
+        # Step 1: Pre-decoding header inspection via PIL without allocating full decompressed bitmap
+        try:
+            with Image.open(image_path) as img:
+                w, h = img.size
+                if w <= 0 or h <= 0:
+                    raise ValueError(f"Invalid image dimensions: {w}x{h}")
+                if w > MAX_IMAGE_DIMENSION or h > MAX_IMAGE_DIMENSION or (w * h) > MAX_IMAGE_PIXELS:
+                    raise ValueError(
+                        f"Image resolution {w}x{h} ({w * h:,} pixels) exceeds maximum allowed {MAX_IMAGE_DIMENSION}x{MAX_IMAGE_DIMENSION} ({MAX_IMAGE_PIXELS:,} pixels) limit"
+                    )
+                # Verify container stream consistency
+                img.verify()
+        except Image.DecompressionBombError as e:
+            raise ValueError(f"Decompression bomb detected: {e}")
+        except (UnidentifiedImageError, OSError, SyntaxError) as e:
+            raise ValueError(f"Corrupted or invalid image file: {e}")
+
+        # Step 2: Safe pixel decoding after headers and dimension limits are strictly confirmed
         image = cv2.imread(image_path)
 
         if image is None:

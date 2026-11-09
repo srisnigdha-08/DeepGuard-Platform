@@ -45,39 +45,47 @@ class IntelligentFrameSampler:
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             raise ValueError(f"Cannot open video: {video_path}")
-        fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
-        total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        dur = total / fps
-        info = {
-            "fps": round(fps, 2),
-            "duration_sec": round(dur, 2),
-            "total_frames": total,
-            "resolution": (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
-                           int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))),
-        }
-        scenes = self._detect_scenes(cap, fps, total)
-        info["scene_count"] = len(scenes)
-        budget = min(self.max_frames,
-                     max(self.min_frames, int(dur * self.target_fps)))
-        pts = []
-        for start, end in scenes:
-            length = end - start
-            alloc = max(1, int(budget * length / total))
-            margin = int(length * 0.05)
-            s, e = start + margin, end - margin
-            if e <= s:
-                s, e = start, end
-            pts.extend(np.linspace(s, e, alloc, dtype=int).tolist())
-        frames = []
-        for fn in sorted(set(pts)):
-            cap.set(cv2.CAP_PROP_POS_FRAMES, fn)
-            ret, frame = cap.read()
-            if ret:
-                frames.append({
-                    "frame_number": fn,
-                    "timestamp_sec": round(fn / fps, 3),
-                    "image_bgr": frame,
-                })
-        cap.release()
-        logger.info(f"Sampled {len(frames)}/{total} frames from {dur:.1f}s video")
-        return frames, info
+        try:
+            fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
+            total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            if total <= 0 or fps <= 0:
+                raise ValueError("Corrupted or unreadable video stream: total frames is 0")
+
+            dur = total / fps
+            if dur > 300.0:
+                raise ValueError(f"Video duration ({round(dur, 1)}s) exceeds maximum allowed 300s (5 minutes) limit")
+
+            info = {
+                "fps": round(fps, 2),
+                "duration_sec": round(dur, 2),
+                "total_frames": total,
+                "resolution": (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+                               int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))),
+            }
+            scenes = self._detect_scenes(cap, fps, total)
+            info["scene_count"] = len(scenes)
+            budget = min(self.max_frames,
+                         max(self.min_frames, int(dur * self.target_fps)))
+            pts = []
+            for start, end in scenes:
+                length = end - start
+                alloc = max(1, int(budget * length / total))
+                margin = int(length * 0.05)
+                s, e = start + margin, end - margin
+                if e <= s:
+                    s, e = start, end
+                pts.extend(np.linspace(s, e, alloc, dtype=int).tolist())
+            frames = []
+            for fn in sorted(set(pts)):
+                cap.set(cv2.CAP_PROP_POS_FRAMES, fn)
+                ret, frame = cap.read()
+                if ret:
+                    frames.append({
+                        "frame_number": fn,
+                        "timestamp_sec": round(fn / fps, 3),
+                        "image_bgr": frame,
+                    })
+            logger.info(f"Sampled {len(frames)}/{total} frames from {dur:.1f}s video")
+            return frames, info
+        finally:
+            cap.release()

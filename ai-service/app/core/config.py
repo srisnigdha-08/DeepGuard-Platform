@@ -28,9 +28,26 @@ class Settings(BaseSettings):
     MAX_AUDIO_MB: int = 50
     BATCH_SIZE: int = 16
     MAX_VIDEO_FRAMES: int = 60
-    SERVICE_SECRET_KEY: str = "change-this-in-production"
+    MAX_CONCURRENT_DETECTIONS: int = 5
+    SERVICE_SECRET_KEY: str = ""
+    AI_SERVICE_KEY: str = ""
+    ENVIRONMENT: str = "development"
+
+    @property
+    def effective_service_key(self) -> str:
+        """
+        Retrieves the configured service authentication secret.
+        Prefers AI_SERVICE_KEY (matching Node backend config), falling back to SERVICE_SECRET_KEY.
+        """
+        if self.AI_SERVICE_KEY and self.AI_SERVICE_KEY.strip():
+            return self.AI_SERVICE_KEY.strip()
+        if self.SERVICE_SECRET_KEY and self.SERVICE_SECRET_KEY.strip():
+            return self.SERVICE_SECRET_KEY.strip()
+        return ""
+
     class Config:
-        env_file = ".env"
+        env_file = _app_dir / ".env"
         case_sensitive = False
+        extra = "ignore"
 
 settings = Settings()

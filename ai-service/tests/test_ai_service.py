@@ -6,6 +6,7 @@ import torch
 from fastapi.testclient import TestClient
 
 from main import app
+from app.core.config import settings
 from preprocessing.face_extractor import FaceExtractor
 from models.efficientnet_loader import DeepFakeDetector, load_efficientnet
 from services.image_detector import ImageDeepFakeDetector
@@ -55,8 +56,9 @@ def test_health_endpoint(client):
 
 
 def test_model_info_claims(client):
-    """Verify GET /model/info returns honest EfficientNet-B4 FF++ C23 metrics and in-dev audio."""
-    res = client.get("/model/info")
+    """Verify GET /model/info returns honest EfficientNet-B4 FF++ C23 metrics and in-dev audio when authenticated."""
+    headers = {"X-Service-Key": settings.effective_service_key}
+    res = client.get("/model/info", headers=headers)
     assert res.status_code == 200
     data = res.json()
 
@@ -72,14 +74,15 @@ def test_model_info_claims(client):
 
 
 def test_detect_image_no_face_endpoint(client, tmp_path):
-    """Verify POST /detect/image with a blank image returns UNCERTAIN without crashing."""
+    """Verify authorized POST /detect/image with a blank image returns UNCERTAIN without crashing."""
     blank_img = np.zeros((200, 200, 3), dtype=np.uint8)
     img_path = str(tmp_path / "blank.png")
     cv2.imwrite(img_path, blank_img)
 
+    headers = {"X-Service-Key": settings.effective_service_key}
     with open(img_path, "rb") as f:
         files = {"file": ("blank.png", f, "image/png")}
-        res = client.post("/detect/image", files=files)
+        res = client.post("/detect/image", files=files, headers=headers)
 
     assert res.status_code == 200
     data = res.json()
@@ -89,10 +92,11 @@ def test_detect_image_no_face_endpoint(client, tmp_path):
 
 
 def test_detect_image_invalid_magic_bytes(client):
-    """Verify POST /detect/image rejects text file disguised as jpg."""
+    """Verify authorized POST /detect/image rejects text file disguised as jpg."""
     fake_jpg = b"This is plain text and definitely not a valid image."
     files = {"file": ("spoofed.jpg", fake_jpg, "image/jpeg")}
-    res = client.post("/detect/image", files=files)
+    headers = {"X-Service-Key": settings.effective_service_key}
+    res = client.post("/detect/image", files=files, headers=headers)
     assert res.status_code == 400
     assert "magic" in res.text.lower() or "mismatch" in res.text.lower()
 

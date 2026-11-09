@@ -1,13 +1,14 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
+from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-import uvicorn, torch, uuid, os, logging, traceback
+import uvicorn, torch, uuid, os, logging, traceback, asyncio
 from pathlib import Path
 from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.core.gpu_config import VRAMOptimizer
+from app.core.security import verify_service_key
 from models.efficientnet_loader import load_efficientnet
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -30,6 +31,15 @@ MAGIC = {
 }
 
 def verify_magic(header: bytes, content_type: str) -> bool:
+    if not header or len(header) < 4:
+        return False
+    if content_type == "video/quicktime":
+        if len(header) >= 8:
+            brand = header[4:8]
+            return brand in {b"ftyp", b"moov", b"mdat", b"wide", b"free", b"qt  "}
+        return False
+    if content_type == "audio/mpeg":
+        return header.startswith(b"ID3") or (len(header) >= 2 and header[0] == 0xFF and (header[1] & 0xE0) == 0xE0)
     sig = MAGIC.get(content_type)
     if not sig:
         return False
@@ -150,7 +160,7 @@ async def health():
         },
     }
 
-@app.get("/model/info")
+@app.get("/model/info", dependencies=[Security(verify_service_key)])
 async def model_info():
     return {
         "model_name": "EfficientNet-B4 (Binary DeepFake Classifier)",
@@ -178,38 +188,53 @@ async def model_info():
         "audio_model": "AudioDeepFakeCNN (Prototype / In development / Checkpoint not loaded)",
     }
 
-@app.post("/detect/image")
+# Defense-in-depth: bound concurrent heavy inference on AI service directly
+inference_semaphore = asyncio.Semaphore(settings.MAX_CONCURRENT_DETECTIONS)
+
+@app.post("/detect/image", dependencies=[Security(verify_service_key)])
 async def detect_image(file: UploadFile = File(...), bg: BackgroundTasks = BackgroundTasks()):
     if not image_detector:
         raise HTTPException(503, "Image detector not initialized")
-    path = await save_upload(file, ALLOWED_IMAGE, settings.MAX_IMAGE_MB)
-    bg.add_task(cleanup, path)
-    result = image_detector.analyze(path)
-    if result.get("status") == "failed":
-        raise HTTPException(422, result.get("error", "Analysis failed"))
-    return result
+    if inference_semaphore.locked():
+        logger.warn(f"AI service inference semaphore saturated ({settings.MAX_CONCURRENT_DETECTIONS} active)")
+        raise HTTPException(429, "AI service is currently at maximum capacity. Please retry shortly.")
+    async with inference_semaphore:
+        path = await save_upload(file, ALLOWED_IMAGE, settings.MAX_IMAGE_MB)
+        bg.add_task(cleanup, path)
+        result = image_detector.analyze(path)
+        if result.get("status") == "failed":
+            raise HTTPException(422, result.get("error", "Analysis failed"))
+        return result
 
-@app.post("/detect/video")
+@app.post("/detect/video", dependencies=[Security(verify_service_key)])
 async def detect_video(file: UploadFile = File(...), bg: BackgroundTasks = BackgroundTasks()):
     if not video_detector:
         raise HTTPException(503, "Video detector not initialized")
-    path = await save_upload(file, ALLOWED_VIDEO, settings.MAX_VIDEO_MB)
-    bg.add_task(cleanup, path)
-    result = video_detector.analyze(path)
-    if result.get("status") == "failed":
-        raise HTTPException(422, result.get("error", "Analysis failed"))
-    return result
+    if inference_semaphore.locked():
+        logger.warn(f"AI service inference semaphore saturated ({settings.MAX_CONCURRENT_DETECTIONS} active)")
+        raise HTTPException(429, "AI service is currently at maximum capacity. Please retry shortly.")
+    async with inference_semaphore:
+        path = await save_upload(file, ALLOWED_VIDEO, settings.MAX_VIDEO_MB)
+        bg.add_task(cleanup, path)
+        result = video_detector.analyze(path)
+        if result.get("status") == "failed":
+            raise HTTPException(422, result.get("error", "Analysis failed"))
+        return result
 
-@app.post("/detect/audio")
+@app.post("/detect/audio", dependencies=[Security(verify_service_key)])
 async def detect_audio(file: UploadFile = File(...), bg: BackgroundTasks = BackgroundTasks()):
     if not audio_detector:
         raise HTTPException(503, "Audio model not loaded")
-    path = await save_upload(file, ALLOWED_AUDIO, settings.MAX_AUDIO_MB)
-    bg.add_task(cleanup, path)
-    result = audio_detector.analyze(path)
-    if result.get("status") == "failed":
-        raise HTTPException(422, result.get("error", "Analysis failed"))
-    return result
+    if inference_semaphore.locked():
+        logger.warn(f"AI service inference semaphore saturated ({settings.MAX_CONCURRENT_DETECTIONS} active)")
+        raise HTTPException(429, "AI service is currently at maximum capacity. Please retry shortly.")
+    async with inference_semaphore:
+        path = await save_upload(file, ALLOWED_AUDIO, settings.MAX_AUDIO_MB)
+        bg.add_task(cleanup, path)
+        result = audio_detector.analyze(path)
+        if result.get("status") == "failed":
+            raise HTTPException(422, result.get("error", "Analysis failed"))
+        return result
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, workers=1, reload=False)

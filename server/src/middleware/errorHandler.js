@@ -26,6 +26,9 @@ const errorHandler = (err, req, res, next) => {
   if (err.code === "LIMIT_FILE_SIZE")
     return res.status(413).json({ success: false, message: "File exceeds maximum size." });
 
+  if (err.code === "INVALID_FILE_EXTENSION" || err.message === "File extension not allowed")
+    return res.status(415).json({ success: false, message: "File extension not allowed.", code: "INVALID_FILE_EXTENSION" });
+
   if (err.name === "JsonWebTokenError")
     return res.status(401).json({ success: false, message: "Invalid token.", code: "TOKEN_INVALID" });
 

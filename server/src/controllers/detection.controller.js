@@ -5,13 +5,32 @@ const storageService = require("../services/storageService");
 const DetectionResult = require("../models/DetectionResult");
 const User = require("../models/User");
 const { asyncHandler } = require("../utils/asyncHandler");
-const { validateFileType } = require("../middleware/fileValidator");
+const {
+  validateFileType,
+} = require("../middleware/fileValidator");
+const {
+  registerActiveTempFile,
+  unregisterActiveTempFile,
+} = require("../utils/tempCleaner");
 const logger = require("../utils/logger");
 
 const ALLOWED = {
   image: ["image/jpeg", "image/png", "image/webp"],
   video: ["video/mp4", "video/avi", "video/quicktime", "video/x-msvideo"],
   audio: ["audio/mpeg", "audio/wav", "audio/x-wav", "audio/flac"],
+};
+
+const cleanupFile = (filePath) => {
+  if (filePath) {
+    unregisterActiveTempFile(filePath);
+    if (fs.existsSync(filePath)) {
+      try {
+        fs.unlinkSync(filePath);
+      } catch (err) {
+        logger.warn(`Failed to cleanup temp file ${filePath}: ${err.message}`);
+      }
+    }
+  }
 };
 
 const runAnalysis = async (req, res, mediaType) => {
@@ -27,7 +46,7 @@ const runAnalysis = async (req, res, mediaType) => {
     ALLOWED[mediaType],
   );
   if (!valid) {
-    fs.unlink(req.file.path, () => {});
+    cleanupFile(req.file.path);
     return res
       .status(415)
       .json({ success: false, message: "File validation failed.", errors });
@@ -36,18 +55,22 @@ const runAnalysis = async (req, res, mediaType) => {
   // Fail fast if AI service is down — no point saving a pending record
   const health = await aiService.checkHealth();
   if (health.status !== "healthy") {
-    fs.unlink(req.file.path, () => {});
+    cleanupFile(req.file.path);
     return res.status(503).json({
       success: false,
       message: "AI service is currently unavailable. Please try again.",
     });
   }
-  console.log("req.user =", req.user);
+
+  // Sanitize original filename against directory traversal sequences
+  const rawOriginal = path.basename(req.file.originalname || `upload_${Date.now()}`);
+  const safeOriginalFilename = rawOriginal.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 255);
+
   // Create pending record for audit trail (even if analysis fails)
   const record = await DetectionResult.create({
     userId: req.user.id,
     mediaType,
-    originalFilename: req.file.originalname,
+    originalFilename: safeOriginalFilename,
     fileSizeBytes: req.file.size,
     mimeType: req.file.mimetype,
     status: "processing",
@@ -56,26 +79,85 @@ const runAnalysis = async (req, res, mediaType) => {
     confidencePercent: 0,
   });
 
+  // Ensure file is marked active during inference so temp cleaners never delete it
+  registerActiveTempFile(req.file.path);
+
+  const abortController = new AbortController();
+  // Node.js HTTP Lifecycle Correctness:
+  // Do NOT listen to req.on('close') here — in modern Node.js, IncomingMessage emits 'close'
+  // normally once the upload stream has completed, even though the client is still connected
+  // waiting for the HTTP response!
+  // Instead, listen to res.on('close') and check whether the response has finished or ended.
+  const onResponseClose = () => {
+    if (!res.writableEnded && !res.writableFinished) {
+      logger.warn(`Client connection closed prematurely during ${mediaType} detection for ${record._id}. Propagating cancellation to AI service.`);
+      abortController.abort();
+    }
+  };
+  res.on("close", onResponseClose);
+
   let aiResult;
   try {
     const analyzers = {
-      image: () => aiService.analyzeImage(req.file.path),
-      video: () => aiService.analyzeVideo(req.file.path),
-      audio: () => aiService.analyzeAudio(req.file.path),
+      image: (sig) => aiService.analyzeImage(req.file.path, sig),
+      video: (sig) => aiService.analyzeVideo(req.file.path, sig),
+      audio: (sig) => aiService.analyzeAudio(req.file.path, sig),
     };
-    aiResult = await analyzers[mediaType]();
+    aiResult = await analyzers[mediaType](abortController.signal);
   } catch (err) {
+    cleanupFile(req.file.path);
+
+    if (abortController.signal.aborted || err.name === "CanceledError" || err.code === "ERR_CANCELED") {
+      logger.info(`AI analysis aborted for ${record._id} due to client disconnect`);
+      await DetectionResult.findByIdAndUpdate(record._id, {
+        status: "failed",
+        errorMessage: "Client disconnected before analysis completed",
+      });
+      return;
+    }
+
     await DetectionResult.findByIdAndUpdate(record._id, {
       status: "failed",
       errorMessage: err.message,
     });
-    fs.unlink(req.file.path, () => {});
     logger.error(`AI analysis failed for ${record._id}: ${err.message}`);
+
+    if (err.code === "ECONNABORTED" || err.message?.toLowerCase().includes("timeout")) {
+      return res.status(504).json({
+        success: false,
+        message: "AI analysis timed out. The file may be too complex or the engine is busy.",
+        analysisId: record._id,
+      });
+    }
+
+    if (err.response?.status === 429) {
+      res.setHeader("Retry-After", "5");
+      return res.status(429).json({
+        success: false,
+        message: err.response.data?.detail || "AI engine is currently at maximum capacity. Please retry shortly.",
+        retryAfter: "5 seconds",
+        analysisId: record._id,
+      });
+    }
+
+    if (err.response?.status === 422) {
+      return res.status(422).json({
+        success: false,
+        message: err.response.data?.detail || "Media processing failed due to invalid or unprocessable content.",
+        analysisId: record._id,
+      });
+    }
+
     return res.status(502).json({
       success: false,
       message: "AI analysis failed.",
       analysisId: record._id,
     });
+  } finally {
+    res.off("close", onResponseClose);
+    if (req.file?.path) {
+      unregisterActiveTempFile(req.file.path);
+    }
   }
 
   // Check for no-face detection
@@ -97,7 +179,7 @@ const runAnalysis = async (req, res, mediaType) => {
       new: true,
     }).lean();
 
-    fs.unlink(req.file.path, () => {});
+    cleanupFile(req.file.path);
     logger.info(`Analysis ${record._id}: UNCERTAIN (No face detected)`);
 
     return res.json({
@@ -196,7 +278,7 @@ const runAnalysis = async (req, res, mediaType) => {
     $set: { "stats.lastAnalysisAt": new Date() },
   });
 
-  fs.unlink(req.file.path, () => {}); // Clean up temp file
+  cleanupFile(req.file.path); // Clean up temp file
   logger.info(
     `Analysis ${record._id}: ${aiResult.verdict} (${Date.now() - start}ms)`,
   );
@@ -211,7 +293,7 @@ const runAnalysis = async (req, res, mediaType) => {
 const analyzeImage = asyncHandler((req, res) => runAnalysis(req, res, "image"));
 const analyzeVideo = asyncHandler((req, res) => runAnalysis(req, res, "video"));
 const analyzeAudio = asyncHandler(async (req, res) => {
-  if (req.file) fs.unlink(req.file.path, () => {});
+  if (req.file) cleanupFile(req.file.path);
   return res.status(503).json({
     success: false,
     message: "Audio deepfake detection is currently unavailable (model training in progress).",

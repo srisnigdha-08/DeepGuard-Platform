@@ -46,6 +46,7 @@ jobs:
         working-directory: server
         env:
           NODE_ENV:           test
+          TEST_MONGODB_URI:   mongodb://localhost:27017/deepfake_test
           MONGODB_URI:        mongodb://localhost:27017/deepfake_test
           JWT_ACCESS_SECRET:  test-access-secret-must-be-at-least-32-chars
           JWT_REFRESH_SECRET: test-refresh-secret-different-from-access
