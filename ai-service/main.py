@@ -196,7 +196,7 @@ async def detect_image(file: UploadFile = File(...), bg: BackgroundTasks = Backg
     if not image_detector:
         raise HTTPException(503, "Image detector not initialized")
     if inference_semaphore.locked():
-        logger.warn(f"AI service inference semaphore saturated ({settings.MAX_CONCURRENT_DETECTIONS} active)")
+        logger.warning(f"AI service inference semaphore saturated ({settings.MAX_CONCURRENT_DETECTIONS} active)")
         raise HTTPException(429, "AI service is currently at maximum capacity. Please retry shortly.")
     async with inference_semaphore:
         path = await save_upload(file, ALLOWED_IMAGE, settings.MAX_IMAGE_MB)
@@ -211,7 +211,7 @@ async def detect_video(file: UploadFile = File(...), bg: BackgroundTasks = Backg
     if not video_detector:
         raise HTTPException(503, "Video detector not initialized")
     if inference_semaphore.locked():
-        logger.warn(f"AI service inference semaphore saturated ({settings.MAX_CONCURRENT_DETECTIONS} active)")
+        logger.warning(f"AI service inference semaphore saturated ({settings.MAX_CONCURRENT_DETECTIONS} active)")
         raise HTTPException(429, "AI service is currently at maximum capacity. Please retry shortly.")
     async with inference_semaphore:
         path = await save_upload(file, ALLOWED_VIDEO, settings.MAX_VIDEO_MB)
@@ -226,7 +226,7 @@ async def detect_audio(file: UploadFile = File(...), bg: BackgroundTasks = Backg
     if not audio_detector:
         raise HTTPException(503, "Audio model not loaded")
     if inference_semaphore.locked():
-        logger.warn(f"AI service inference semaphore saturated ({settings.MAX_CONCURRENT_DETECTIONS} active)")
+        logger.warning(f"AI service inference semaphore saturated ({settings.MAX_CONCURRENT_DETECTIONS} active)")
         raise HTTPException(429, "AI service is currently at maximum capacity. Please retry shortly.")
     async with inference_semaphore:
         path = await save_upload(file, ALLOWED_AUDIO, settings.MAX_AUDIO_MB)

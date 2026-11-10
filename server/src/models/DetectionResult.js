@@ -85,6 +85,7 @@ const detectionResultSchema = new mongoose.Schema(
     ],
     // Shared
     processingTimings: mongoose.Schema.Types.Mixed,
+    safetyMetadata: mongoose.Schema.Types.Mixed,
     status: {
       type: String,
       enum: ["pending", "processing", "completed", "failed"],

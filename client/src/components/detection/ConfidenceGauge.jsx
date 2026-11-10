@@ -14,7 +14,7 @@ export default function ConfidenceGauge({ confidence = 0, isFake = false, size =
   const r    = (size - 16) / 2;          // radius accounts for stroke width
   const circ = 2 * Math.PI * r;          // full circumference
   const fill = (confidence / 100) * circ; // filled portion
-  const color = isFake ? "#ef4444" : "#22c55e";
+  const color = isFake ? "#f59e0b" : "#22c55e";
 
   return (
     <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
@@ -33,21 +33,21 @@ export default function ConfidenceGauge({ confidence = 0, isFake = false, size =
         />
       </svg>
       {/* Label */}
-      <div className="flex flex-col items-center z-10">
+      <div className="flex flex-col items-center z-10 text-center px-1">
         <motion.span
           initial={{ opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.8, type: "spring" }}
-          className="text-xl font-bold tabular-nums"
+          className="text-lg font-bold tabular-nums"
           style={{ color }}
         >
           {Number(confidence).toFixed(1)}%
         </motion.span>
-        <span className={clsx(
-          "text-2xs font-bold uppercase tracking-widest mt-0.5",
-          isFake ? "text-danger" : "text-success"
-        )}>
-          {isFake ? "FAKE" : "REAL"}
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted mt-0.5 leading-none">
+          {isFake ? "Suspicious" : "Conformity"}
+        </span>
+        <span className="text-[8px] text-text-muted/70 tracking-tight leading-none mt-0.5">
+          uncalibrated
         </span>
       </div>
     </div>

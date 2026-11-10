@@ -176,8 +176,10 @@ export default function Dashboard() {
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <span className={item.isFake ? "badge-fake" : "badge-real"}>{item.verdict}</span>
-                    <p className="text-2xs text-text-muted mt-1">{item.confidencePercent?.toFixed(1)}%</p>
+                    <span className={item.verdict === "UNCERTAIN" ? "badge-uncertain" : (item.isFake ? "badge-fake" : "badge-real")}>
+                      {item.verdict === "UNCERTAIN" ? "Inconclusive" : (item.isFake ? "Suspicious" : "Low Indicators")}
+                    </span>
+                    <p className="text-2xs text-text-muted mt-1">Score: {item.confidencePercent?.toFixed(1)}%</p>
                   </div>
                 </div>
               </Link>

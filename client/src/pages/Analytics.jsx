@@ -42,7 +42,7 @@ export default function Analytics() {
           { label: "Total Analyses",  value: o.total || 0 },
           { label: "Fakes Detected",  value: o.fakeCount || 0 },
           { label: "Fake Rate",       value: `${o.total ? ((o.fakeCount / o.total) * 100).toFixed(1) : 0}%` },
-          { label: "Avg Confidence",  value: `${o.avgConfidencePercent?.toFixed(1) ?? 0}%` },
+          { label: "Avg Model Score", value: `${o.avgConfidencePercent?.toFixed(1) ?? 0}%` },
         ].map(({ label, value }, i) => (
           <motion.div key={label} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }} className="card p-4 text-center">

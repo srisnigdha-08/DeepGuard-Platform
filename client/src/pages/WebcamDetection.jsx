@@ -191,10 +191,10 @@ export default function WebcamDetection() {
                   <motion.div key={isNoFace ? "nf" : isFake ? "f" : "r"}
                     initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
                     className={clsx(
-                      "absolute top-3 right-3 px-3 py-1.5 rounded-full flex items-center gap-2 font-bold text-sm",
-                      isNoFace ? "bg-warning text-black" : isFake ? "bg-danger text-white" : "bg-success text-white"
+                      "absolute top-3 right-3 px-3 py-1.5 rounded-full flex items-center gap-2 font-bold text-xs",
+                      isNoFace ? "bg-warning text-black" : isFake ? "bg-amber-500 text-white" : "bg-success text-white"
                     )}>
-                    {isNoFace ? <><AlertTriangle size={14} /> NO FACE</> : isFake ? <><ShieldX size={14} /> FAKE</> : <><ShieldCheck size={14} /> REAL</>}
+                    {isNoFace ? <><AlertTriangle size={14} /> NO FACE</> : isFake ? <><ShieldX size={14} /> SUSPICIOUS PATTERNS</> : <><ShieldCheck size={14} /> LOW INDICATORS</>}
                   </motion.div>
                 )}
 
@@ -202,14 +202,14 @@ export default function WebcamDetection() {
                 {result && !isNoFace && (
                   <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-4 py-2">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-2xs text-white/70">{isFake ? "Fake confidence" : "Real confidence"}</span>
+                      <span className="text-2xs text-white/70">{isFake ? "Model Anomaly Score" : "Conformity Score"}</span>
                       <span className="text-xs font-bold"
-                        style={{ color: isFake ? "#ef4444" : "#22c55e" }}>{conf}%</span>
+                        style={{ color: isFake ? "#f59e0b" : "#22c55e" }}>{conf}%</span>
                     </div>
                     <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
                       <motion.div animate={{ width: `${conf}%` }} transition={{ duration: 0.3 }}
                         className="h-full rounded-full"
-                        style={{ background: isFake ? `rgba(239,68,68,${0.7 + (result.confidence || 0) * 0.3})` : "rgba(34,197,94,0.8)" }} />
+                        style={{ background: isFake ? `rgba(245,158,11,${0.7 + (result.confidence || 0) * 0.3})` : "rgba(34,197,94,0.8)" }} />
                     </div>
                   </div>
                 )}
@@ -270,12 +270,12 @@ export default function WebcamDetection() {
           {history.length > 0 && (
             <div className="card p-4">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-text-primary">Confidence Trend</h3>
+                <h3 className="text-sm font-semibold text-text-primary">Score Trend</h3>
                 <span className={clsx(
                   "text-2xs font-bold px-2 py-0.5 rounded-full",
-                  avgRecent > 0.5 ? "bg-danger/10 text-danger" : "bg-success/10 text-success"
+                  avgRecent > 0.5 ? "bg-amber-500/10 text-amber-400" : "bg-success/10 text-success"
                 )}>
-                  {avgRecent > 0.5 ? "TRENDING FAKE" : "TRENDING REAL"}
+                  {avgRecent > 0.5 ? "TRENDING ELEVATED" : "TRENDING BASELINE"}
                 </span>
               </div>
               {/* Bar mini-chart */}
@@ -286,7 +286,7 @@ export default function WebcamDetection() {
                       height: `${r.confidence * 100}%`,
                       minHeight: "2px",
                       background: r.isFake
-                        ? `rgba(239,68,68,${0.4 + r.confidence * 0.6})`
+                        ? `rgba(245,158,11,${0.4 + r.confidence * 0.6})`
                         : `rgba(34,197,94,${0.4 + (1 - r.confidence) * 0.6})`,
                     }}
                     title={`${Math.round(r.confidence * 100)}%`}
@@ -302,14 +302,14 @@ export default function WebcamDetection() {
 
           {/* Current frame details */}
           {result && (
-            <div className={clsx("card p-4 border", isFake ? "border-danger/30" : "border-success/30")}>
+            <div className={clsx("card p-4 border", isFake ? "border-amber-500/30" : "border-success/30")}>
               <h3 className="text-sm font-semibold text-text-primary mb-3">Current Frame</h3>
               <div className="space-y-2">
                 {[
-                  { label: "Verdict",       value: result.verdict,                                color: isFake ? "text-danger" : "text-success" },
-                  { label: "Confidence",    value: `${conf}%`,                                    color: "text-text-primary" },
+                  { label: "Rule verdict",  value: result.verdict,                                color: isFake ? "text-amber-400" : "text-success" },
+                  { label: "Model Score",   value: `${conf}% (uncalibrated)`,                     color: "text-text-primary" },
                   { label: "Face detected", value: result.faceDetected ? "Yes" : "No",            color: result.faceDetected ? "text-success" : "text-warning" },
-                  { label: "Regions",       value: `${result.regionCount || 0} suspicious`,       color: result.regionCount > 0 ? "text-danger" : "text-success" },
+                  { label: "Regions",       value: `${result.regionCount || 0} flagged`,          color: result.regionCount > 0 ? "text-amber-400" : "text-success" },
                   { label: "Inference",     value: `${result.processingTimings?.inferenceMs ?? "—"}ms`, color: "text-text-muted" },
                 ].map(({ label, value, color }) => (
                   <div key={label} className="flex justify-between items-center text-xs">
@@ -323,6 +323,7 @@ export default function WebcamDetection() {
 
           {/* Disclaimer */}
           <div className="text-2xs text-text-muted space-y-1 px-1">
+            <p>• Automated model scores are not definitive forensic proof</p>
             <p>• Frames are not stored permanently</p>
             <p>• Each frame counts toward your upload quota</p>
             <p>• Face camera directly with good lighting for best results</p>

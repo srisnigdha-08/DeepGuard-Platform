@@ -4,11 +4,11 @@ import { Shield, Zap, Eye, FileText, BarChart3, Camera, ArrowRight, CheckCircle2
 
 const FEATURES = [
   { icon: Shield,    title: "Multi-Modal Detection",   color: "text-primary-400", desc: "Image and video deepfake detection in one unified platform (Audio in development)." },
-  { icon: Eye,       title: "Grad-CAM Explainability", color: "text-success",     desc: "Visual heatmaps show exactly which facial regions triggered detection." },
+  { icon: Eye,       title: "Grad-CAM Explainability", color: "text-success",     desc: "Visual heatmaps reveal model feature attribution patterns across face regions." },
   { icon: Zap,       title: "Real-Time Analysis",      color: "text-warning",     desc: "<3s images, <15s videos. GPU-accelerated EfficientNet-B4." },
   { icon: Camera,    title: "Live Webcam Detection",   color: "text-accent-cyan", desc: "Real-time deepfake detection at 667ms per frame using MediaStream API." },
-  { icon: FileText,  title: "PDF Forensic Reports",    color: "text-accent-purple",desc: "Generate court-admissible reports with heatmaps and confidence scores." },
-  { icon: BarChart3, title: "Analytics Dashboard",     color: "text-primary-400", desc: "Full history, confidence trends, and detection statistics over time." },
+  { icon: FileText,  title: "Inspection PDF Reports",  color: "text-accent-purple",desc: "Generate comprehensive analysis reports with attribution heatmaps and model scores." },
+  { icon: BarChart3, title: "Analytics Dashboard",     color: "text-primary-400", desc: "Full history, score distributions, and detection statistics over time." },
 ];
 
 const STATS = [

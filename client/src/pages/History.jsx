@@ -46,7 +46,7 @@ export default function History() {
       <div>
         <h2 className="text-lg font-semibold text-text-primary">Detection History</h2>
         <p className="text-sm text-text-secondary mt-0.5">
-          {pagination.total ?? 0} total analyses
+          {pagination.total ?? 0} total analyses · Automated assessments (human verification recommended)
         </p>
       </div>
 
@@ -73,8 +73,8 @@ export default function History() {
 
       {/* Table */}
       <div className="card overflow-hidden">
-        <div className="hidden sm:grid grid-cols-[40px_1fr_100px_90px_100px_80px] items-center gap-4 px-5 py-3 bg-surface-100 border-b border-surface-300">
-          {["Type","File","Verdict","Confidence","Date","Actions"].map(h => (
+        <div className="hidden sm:grid grid-cols-[40px_1fr_120px_90px_100px_80px] items-center gap-4 px-5 py-3 bg-surface-100 border-b border-surface-300">
+          {["Type","File","Classification","Model Score","Date","Actions"].map(h => (
             <span key={h} className="text-2xs text-text-muted uppercase tracking-wide">{h}</span>
           ))}
         </div>
@@ -92,7 +92,7 @@ export default function History() {
             return (
               <motion.div key={item._id}
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
-                className="grid grid-cols-[40px_1fr_auto] sm:grid-cols-[40px_1fr_100px_90px_100px_80px] items-center gap-4 px-5 py-3.5 border-b border-surface-300 last:border-0 hover:bg-surface-100/60 transition-colors">
+                className="grid grid-cols-[40px_1fr_auto] sm:grid-cols-[40px_1fr_120px_90px_100px_80px] items-center gap-4 px-5 py-3.5 border-b border-surface-300 last:border-0 hover:bg-surface-100/60 transition-colors">
                 <div className="w-8 h-8 rounded-lg bg-surface-200 flex items-center justify-center text-text-muted">
                   <Icon size={14} />
                 </div>
@@ -100,9 +100,11 @@ export default function History() {
                   <p className="text-sm font-medium text-text-primary truncate">{item.originalFilename}</p>
                   <p className="text-2xs text-text-muted font-mono mt-0.5 hidden sm:block">{item._id.slice(-8)}</p>
                 </div>
-                <span className={item.verdict === "UNCERTAIN" ? "badge-uncertain" : (item.isFake ? "badge-fake" : "badge-real")}>{item.verdict}</span>
+                <span className={item.verdict === "UNCERTAIN" ? "badge-uncertain" : (item.isFake ? "badge-fake" : "badge-real")}>
+                  {item.verdict === "UNCERTAIN" ? "Inconclusive" : (item.isFake ? "Suspicious" : "Low Indicators")}
+                </span>
                 <p className="text-sm font-mono font-medium text-text-primary hidden sm:block">
-                  {item.confidencePercent?.toFixed(1)}%
+                  {item.confidencePercent != null ? `${item.confidencePercent.toFixed(1)}%` : "—"}
                 </p>
                 <p className="text-xs text-text-muted whitespace-nowrap hidden sm:block">
                   {new Date(item.createdAt).toLocaleDateString()}

@@ -72,9 +72,9 @@ export default function HeatmapViewer({ faceBase64, heatmapBase64, heatmapUrl, r
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h3 className="text-sm font-semibold text-text-primary">Grad-CAM Explainability</h3>
-          <p className="text-2xs text-text-muted mt-0.5">
-            Red = highest manipulation probability · Blue = authentic
+          <h3 className="text-sm font-semibold text-text-primary">Grad-CAM Feature Attribution</h3>
+          <p className="text-2xs text-text-muted mt-0.5 leading-relaxed">
+            Warmer regions indicate areas with highest relative attribution toward the model's manipulation logit. Heatmaps are min-max normalized per crop and reflect model attention, not proof of localized tampering.
           </p>
         </div>
         <div className="flex gap-1.5">

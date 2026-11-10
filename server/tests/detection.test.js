@@ -122,6 +122,12 @@ describe("Detection API & File Validation", () => {
     expect(res.body.data.confidencePercent).toBe(95.0);
     expect(res.body.data.rawFakeProbability).toBe(0.05);
     expect(res.body.data.faceDetected).toBe(true);
+    // Backwards-compatible safety metadata assertions
+    expect(res.body.data.safetyMetadata).toBeDefined();
+    expect(res.body.data.safetyMetadata.modelId).toBe("efficientnet-b4-epoch34");
+    expect(res.body.data.safetyMetadata.decisionThreshold).toBe(0.50);
+    expect(res.body.data.safetyMetadata.humanVerificationRecommended).toBe(true);
+    expect(res.body.data.safetyMetadata.limitationWarning).toMatch(/FaceForensics\+\+ C23|validation specificity/i);
   });
 
   it("handles no-face detection from AI service cleanly", async () => {
@@ -154,6 +160,114 @@ describe("Detection API & File Validation", () => {
     expect(res.body.data.verdict).toBe("UNCERTAIN");
     expect(res.body.data.faceDetected).toBe(false);
     expect(res.body.message).toMatch(/No detectable face/i);
+    expect(res.body.data.safetyMetadata).toBeDefined();
+    expect(res.body.data.safetyMetadata.scoreInterpretation).toMatch(/no human face/i);
+  });
+
+  it("GET /api/detect/result/:id provides backwards-compatible safetyMetadata for historical records", async () => {
+    const historicalDoc = await require("../src/models/DetectionResult").create({
+      userId: (await require("../src/models/User").findOne({ email: "detector@deepguard.local" }))._id,
+      mediaType: "video",
+      originalFilename: "historical_video.mp4",
+      verdict: "FAKE",
+      confidence: 0.92,
+      confidencePercent: 92.0,
+      rawFakeProbability: 0.92,
+      isFake: true,
+      faceDetected: true,
+      status: "completed",
+    });
+
+    const res = await request(app)
+      .get(`/api/detect/result/${historicalDoc._id}`)
+      .set("Authorization", `Bearer ${authToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.verdict).toBe("FAKE");
+    expect(res.body.data.confidencePercent).toBe(92.0);
+    expect(res.body.data.safetyMetadata).toBeDefined();
+    expect(res.body.data.safetyMetadata.isHistoricalRecord).toBe(true);
+    expect(res.body.data.safetyMetadata.modelId).toBe(historicalDoc.modelVersion || "unknown-historical-model");
+    expect(res.body.data.safetyMetadata.humanVerificationRecommended).toBe(true);
+
+    // Verify non-destructive handling: database document was NOT mutated with safetyMetadata
+    const dbDoc = await require("../src/models/DetectionResult").findById(historicalDoc._id);
+    expect(dbDoc.safetyMetadata).toBeUndefined();
+  });
+
+  it("handles insufficient face detection from video AI service with accurate diagnostic message", async () => {
+    const validMp4 = path.join(tempDir, "short_video.mp4");
+    // Minimal valid mp4 header with ftyp
+    const mp4Bytes = Buffer.from([
+      0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, // ftyp
+      0x69, 0x73, 0x6f, 0x6d, 0x00, 0x00, 0x02, 0x00,
+      0x69, 0x73, 0x6f, 0x6d, 0x69, 0x73, 0x6f, 0x32,
+    ]);
+    fs.writeFileSync(validMp4, mp4Bytes);
+
+    jest.spyOn(aiService, "checkHealth").mockResolvedValueOnce({ status: "healthy" });
+    jest.spyOn(aiService, "analyzeVideo").mockResolvedValueOnce({
+      status: "insufficient_data",
+      error: "Too few faces detected.",
+      video_info: { total_frames: 40, duration_sec: 2.0 },
+    });
+
+    const res = await request(app)
+      .post("/api/detect/video")
+      .set("Authorization", `Bearer ${authToken}`)
+      .attach("file", validMp4);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.verdict).toBe("UNCERTAIN");
+    expect(res.body.data.faceDetected).toBe(true); // Faces were detected, but too few for reliable sequence analysis
+    expect(res.body.message).toMatch(/Too few faces/i);
+    expect(res.body.data.safetyMetadata.scoreInterpretation).toMatch(/minimum 3 valid frames/i);
+  });
+
+  it("processes video with FAKE prediction verifying score semantics and video-specific metadata", async () => {
+    const validMp4 = path.join(tempDir, "fake_video.mp4");
+    const mp4Bytes = Buffer.from([
+      0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70,
+      0x69, 0x73, 0x6f, 0x6d, 0x00, 0x00, 0x02, 0x00,
+      0x69, 0x73, 0x6f, 0x6d, 0x69, 0x73, 0x6f, 0x32,
+    ]);
+    fs.writeFileSync(validMp4, mp4Bytes);
+
+    jest.spyOn(aiService, "checkHealth").mockResolvedValueOnce({ status: "healthy" });
+    jest.spyOn(aiService, "analyzeVideo").mockResolvedValueOnce({
+      status: "success",
+      verdict: "FAKE",
+      confidence: 0.88,
+      confidence_percent: 88.0,
+      raw_fake_probability: 0.88,
+      is_fake: true,
+      aggregation: {
+        total_frames_analyzed: 20,
+        peak_score: 0.95,
+        peak_timestamp_sec: 4.5,
+        weighted_mean_score: 0.83,
+        overall_score: 0.88,
+      },
+      frame_timeline: [
+        { frame_number: 1, timestamp_sec: 0.5, score: 0.82, is_fake: true },
+        { frame_number: 9, timestamp_sec: 4.5, score: 0.95, is_fake: true },
+      ],
+      timings: { total_ms: 1200, inference_ms: 950 },
+      model_version: "efficientnet-b4-epoch34",
+    });
+
+    const res = await request(app)
+      .post("/api/detect/video")
+      .set("Authorization", `Bearer ${authToken}`)
+      .attach("file", validMp4);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.verdict).toBe("FAKE");
+    expect(res.body.data.rawFakeProbability).toBe(0.88);
+    expect(res.body.data.confidencePercent).toBe(88.0);
+    expect(res.body.data.safetyMetadata.aggregation).toBe("quadratic_peak_a0");
+    expect(res.body.data.safetyMetadata.limitationWarning).toMatch(/confirmation test cohort of 50 authentic raw videos/i);
   });
 
   it("POST /api/detect/audio returns 503 because model is not deployed", async () => {

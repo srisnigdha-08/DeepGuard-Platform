@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Download, Trash2, Clock, Cpu, Target, Film, Image, Music } from "lucide-react";
+import { ArrowLeft, Download, Trash2, Clock, Cpu, Target, Film, Image, Music, Info, ShieldAlert } from "lucide-react";
 import toast from "react-hot-toast";
 import VerdictCard   from "../components/detection/VerdictCard";
 import HeatmapViewer from "../components/detection/HeatmapViewer";
@@ -89,7 +89,7 @@ export default function Result() {
       {/* Stat row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard icon={TypeIcon} label="Media Type"   value={result.mediaType?.toUpperCase()} sub={result.originalFilename} />
-        <StatCard icon={Target}   label="Confidence"   value={result.faceDetected === false || result.verdict === "UNCERTAIN" ? "N/A" : `${result.confidencePercent?.toFixed(1)}%`} />
+        <StatCard icon={Target}   label={result.isFake ? "Suspicion Score" : "Conformity Score"} value={result.faceDetected === false || result.verdict === "UNCERTAIN" ? "N/A" : `${result.confidencePercent?.toFixed(1)}%`} sub={result.isFake ? "Uncalibrated fake score" : "Uncalibrated authentic score"} />
         <StatCard icon={Cpu}      label="Model"        value="EfficientNet-B4" sub={result.modelVersion} />
         <StatCard icon={Clock}    label="Total Time"   value={`${result.processingTimings?.totalMs ?? "—"}ms`}
                   sub={`Inference: ${result.processingTimings?.inferenceMs ?? "—"}ms`} />
@@ -107,11 +107,11 @@ export default function Result() {
             />
           )}
           <div className="card p-4 space-y-4">
-            <h3 className="text-sm font-semibold text-text-primary">Analysis Details</h3>
+            <h3 className="text-sm font-semibold text-text-primary">Model Attribution Details</h3>
             {result.faceDetected !== false && result.verdict !== "UNCERTAIN" ? (
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-text-secondary">Manipulation probability P(Fake)</span>
+                  <span className="text-xs text-text-secondary">Model manipulation score (uncalibrated)</span>
                   <span className="text-xs font-mono text-text-primary">
                     {(typeof result.rawFakeProbability === "number"
                       ? result.rawFakeProbability * 100
@@ -128,17 +128,17 @@ export default function Result() {
                       )}%`
                     }}
                     transition={{ delay: 0.3, duration: 0.8 }}
-                    className={`h-full rounded-full ${result.isFake ? "bg-danger" : "bg-success"}`} />
+                    className={`h-full rounded-full ${result.isFake ? "bg-amber-500" : "bg-success"}`} />
                 </div>
               </div>
             ) : (
               <div className="p-3 bg-warning/10 border border-warning/20 rounded-lg text-xs text-warning">
-                No human face was detected. Analysis could not be performed.
+                {result.errorMessage || "Insufficient facial evidence was detected. Analysis could not be performed."}
               </div>
             )}
             {[
               { label: "Face detected",       value: result.faceDetected ? "Yes" : "No face detected",      color: result.faceDetected ? "text-success" : "text-warning" },
-              { label: "Suspicious regions",  value: `${result.regionCount || 0} detected`,                 color: result.regionCount > 0 ? "text-danger" : "text-success" },
+              { label: "Flagged regions",     value: `${result.regionCount || 0} detected`,                 color: result.regionCount > 0 ? "text-amber-400" : "text-success" },
               { label: "Decision threshold",  value: result.thresholdUsed ?? 0.5,                           color: "text-text-primary" },
               { label: "Analyzed at",         value: new Date(result.createdAt).toLocaleString(),            color: "text-text-muted" },
             ].map(({ label, value, color }) => (
@@ -158,7 +158,7 @@ export default function Result() {
           {result.gradcamFrames?.length > 0 && (
             <div className="card p-4">
               <h3 className="text-sm font-semibold text-text-primary mb-3">
-                Most Suspicious Frames ({result.gradcamFrames.length})
+                Frames with Highest Manipulation Scores ({result.gradcamFrames.length})
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {result.gradcamFrames.map((f, i) => (
@@ -171,7 +171,7 @@ export default function Result() {
                     )}
                     <div className="p-2 bg-surface-100">
                       <p className="text-2xs text-text-muted">
-                        @{f.timestampSec}s · <span className="text-danger font-semibold">{(f.fakeScore * 100).toFixed(1)}%</span>
+                        @{f.timestampSec}s · score: <span className="text-amber-400 font-semibold">{f.fakeScore.toFixed(2)}</span>
                       </p>
                     </div>
                   </div>
@@ -213,6 +213,40 @@ export default function Result() {
           )}
         </div>
       )}
+
+      {/* Model Transparency & Reliability Guidance */}
+      <div className="card p-5 border border-surface-300 space-y-3 bg-surface-50/50">
+        <div className="flex items-center gap-2">
+          <Info size={16} className="text-primary-400" />
+          <h3 className="text-sm font-semibold text-text-primary">Model Transparency & Evaluation Caveats</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-text-secondary">
+          <div className="space-y-1.5">
+            <p className="font-medium text-text-primary">Limitations & Evaluated Benchmark Rates:</p>
+            {result.mediaType === "video" ? (
+              <p>
+                In an internal confirmation evaluation of 50 authentic raw FaceForensics++ C23 videos, 29 produced false alarms (58.0% FPR) under the production quadratic-peak aggregation heuristic (A0). Compression noise or rapid head motion elevates model anomaly scores on authentic recordings.
+              </p>
+            ) : (
+              <p>
+                Model trained on FaceForensics++ C23 facial crops (80.2% validation specificity). Image compression artifacts, heavy motion blur, or unusual lighting can elevate anomaly scores on authentic photographs.
+              </p>
+            )}
+            <p className="text-2xs text-text-muted">
+              These figures reflect specific benchmark cohorts and do not represent universal real-world false alarm rates.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <p className="font-medium text-text-primary">Usage & Review Guidance:</p>
+            <p>
+              A low model score does not prove authenticity, nor does an elevated score establish digital forgery or malicious intent.
+            </p>
+            <p className="text-text-primary font-medium">
+              Consequential decisions (legal, journalistic, or identity verification) must always undergo independent qualified expert review.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

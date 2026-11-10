@@ -18,8 +18,8 @@ const CustomTooltip = ({ active, payload }) => {
   return (
     <div className="card p-2.5 text-xs shadow-lg">
       <p className="text-text-muted mb-1">{payload[0]?.payload?.time}s</p>
-      <p className={`font-bold ${s > 0.5 ? "text-danger" : "text-success"}`}>
-        {(s * 100).toFixed(1)}% {s > 0.5 ? "FAKE" : "REAL"}
+      <p className={`font-semibold ${s > 0.5 ? "text-amber-400" : "text-success"}`}>
+        Score: {s.toFixed(2)} ({s > 0.5 ? "Elevated" : "Baseline"})
       </p>
     </div>
   );
@@ -33,15 +33,15 @@ export default function FrameTimeline({ timeline = [], peakTimestamp }) {
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h3 className="text-sm font-semibold text-text-primary">Frame-by-Frame Analysis</h3>
+          <h3 className="text-sm font-semibold text-text-primary">Frame-by-Frame Model Scores</h3>
           <p className="text-2xs text-text-muted mt-0.5">
-            {timeline.length} frames · Peak at {peakTimestamp?.toFixed(1) ?? "—"}s
+            {timeline.length} sampled frames · Peak score at {peakTimestamp?.toFixed(1) ?? "—"}s
           </p>
         </div>
         <div className="flex items-center gap-3 text-2xs text-text-muted">
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-danger inline-block"/>Fake</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-success inline-block"/>Real</span>
-          <span className="flex items-center gap-1"><span className="w-5 border-t border-dashed border-primary-400 inline-block"/>Threshold</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block"/>Score &gt; 0.50</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-success inline-block"/>Score &le; 0.50</span>
+          <span className="flex items-center gap-1"><span className="w-5 border-t border-dashed border-primary-400 inline-block"/>Threshold 0.50</span>
         </div>
       </div>
 
