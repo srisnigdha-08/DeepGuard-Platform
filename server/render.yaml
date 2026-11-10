@@ -7,7 +7,7 @@ services:
     buildCommand: npm install
     startCommand: node src/server.js
     healthCheckPath: /api/health
-    autoDeploy: true
+    autoDeployTrigger: "off"
     branch: main
     envVars:
       - key: NODE_ENV

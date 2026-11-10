@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      confirm_deploy:
+        description: 'Type "DEPLOY" to confirm manual production deployment'
+        required: true
+        default: 'NO'
 
 # Cancel in-progress runs on new pushes to the same branch
 concurrency:
@@ -131,12 +137,13 @@ jobs:
 
   # ─────────────────────────────────────────────────────────
   # JOB 4 — Deploy frontend to Vercel
-  # Only runs on push to main (not PRs)
+  # Requires explicit manual trigger via workflow_dispatch with DEPLOY confirmation
   # ─────────────────────────────────────────────────────────
   deploy-frontend:
     name: Deploy → Vercel
     needs: [test-backend, build-frontend, security-audit]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm_deploy == 'DEPLOY'
+    environment: production
     runs-on: ubuntu-latest
 
     steps:
@@ -160,12 +167,13 @@ jobs:
 
   # ─────────────────────────────────────────────────────────
   # JOB 5 — Deploy backend to Render
-  # Render auto-deploys from GitHub; we trigger via deploy hook
+  # Requires explicit manual trigger via workflow_dispatch with DEPLOY confirmation
   # ─────────────────────────────────────────────────────────
   deploy-backend:
     name: Deploy → Render
     needs: [test-backend, security-audit]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm_deploy == 'DEPLOY'
+    environment: production
     runs-on: ubuntu-latest
 
     steps:
@@ -182,11 +190,12 @@ jobs:
 
   # ─────────────────────────────────────────────────────────
   # JOB 6 — Post-deploy health check
+  # Only executes following successful manual deployment
   # ─────────────────────────────────────────────────────────
   health-check:
     name: Post-Deploy Health Check
     needs: [deploy-frontend, deploy-backend]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm_deploy == 'DEPLOY'
     runs-on: ubuntu-latest
 
     steps:
