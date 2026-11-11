@@ -6,19 +6,19 @@
 [![FastAPI](https://img.shields.io/badge/AI%20Microservice-FastAPI%20%7C%20Python-009688?logo=fastapi&logoColor=white)](ai-service/)
 [![PyTorch](https://img.shields.io/badge/Inference-PyTorch%20%7C%20CUDA-EE4C2C?logo=pytorch&logoColor=white)](ai-service/)
 
-> Production-grade deepfake detection platform utilizing a fine-tuned **EfficientNet-B4** neural network with **Grad-CAM visual explainability**, intelligent temporal frame aggregation, and automated forensic report generation. Built with a React SPA frontend, an Express/Node.js orchestration backend, MongoDB persistence, and a high-performance Python FastAPI AI microservice.
+> Academic research and demonstration deepfake detection platform utilizing a fine-tuned **EfficientNet-B4** convolutional neural network with **Grad-CAM visual explainability**, intelligent temporal frame aggregation, and automated analysis report generation. Built with a React SPA frontend, an Express/Node.js orchestration backend, MongoDB persistence, and a Python FastAPI AI microservice.
 
 ---
 
 ## 📌 Problem Statement & Objectives
 
-Synthetic media and generative AI manipulation have outpaced conventional forensic tools, enabling hyper-realistic face-swaps, identity spoofing, and misinformation campaigns. 
+Synthetic media and generative AI manipulation present significant verification challenges, enabling realistic face-swaps, identity spoofing, and digital misinformation.
 
-**DeepGuard** was designed to address this challenge with four core objectives:
-1. **Accurate Detection**: Fine-tuned classification on industry benchmarks (FaceForensics++ C23) targeting subtle boundary and blending artifacts.
-2. **Transparent Explainability**: Moving beyond black-box classification by generating Grad-CAM heatmaps to visually isolate manipulated facial regions.
-3. **Multi-Modal Forensics**: Supporting standalone images, multi-frame video aggregation, and live webcam streams with strict human face presence verification.
-4. **Audit-Ready Reporting**: Exporting verifiable forensic artifacts, confidence scores, and structured PDF reports for documentation and analysis.
+**DeepGuard** was designed as an applied research platform to investigate multi-stage deepfake detection with four core objectives:
+1. **Accurate Detection**: Fine-tuned classification on academic benchmarks (FaceForensics++ C23) targeting facial blending and boundary artifacts.
+2. **Transparent Explainability**: Moving beyond black-box classification by generating Grad-CAM heatmaps to visually highlight facial regions that most strongly influenced the neural network's prediction, rather than claiming to prove ground-truth pixel-level manipulation.
+3. **Multi-Modal Verification**: Primary visual pipeline for standalone images and multi-frame video with strict human face presence verification; prototype extensions for audio and smart contract verification.
+4. **Structured Reporting**: Exporting structured PDF analysis summaries containing metadata, confidence metrics, and heatmap snapshots for documentation and review (non-cryptographically signed).
 
 ---
 
@@ -29,18 +29,17 @@ React Frontend (Vite SPA) ── [Port 3000]
        │
        │ REST API / JWT Authentication
        ▼
-Node.js / Express Backend ── [Port 5000]
-       │
-       ├── Internal Service API / Magic-Byte Validation
+Node.js / Express Backend ── [Port 5000] ── MongoDB Database [Port 27017]
+       │                                     (Audit Logs, Analysis History,
+       │ Internal Service API /               Users & Refresh Tokens)
+       │ Magic-Byte Validation
        ▼
-FastAPI AI Microservice ── [Port 8000]
+FastAPI AI Microservice ── [Port 8000] (Stateless Inference)
        │
        ├── PyTorch 2.3 + NVIDIA CUDA (Native GPU)
-       ├── MediaPipe Face Detection & Cropping
+       ├── MediaPipe Face Detection & Cropping (224×224)
        ├── EfficientNet-B4 Classification Head
        └── Grad-CAM Explainability Heatmaps
-       │
-MongoDB Database (Audit Logs, Analysis History & Analytics) ── [Port 27017]
 ```
 
 ---
@@ -58,22 +57,29 @@ MongoDB Database (Audit Logs, Analysis History & Analytics) ── [Port 27017]
 
 ---
 
-## 📊 Validated Model Performance
+## 📊 Validated Model Performance (Frame-Level Benchmark)
 
-The deepfake classifier utilizes **EfficientNet-B4** with a custom multi-layer perceptron (MLP) classification head fine-tuned on the **FaceForensics++ C23** benchmark. Performance evaluated on the isolated test set (4,991 evaluated frames):
+The deepfake classifier utilizes **EfficientNet-B4** with a custom multi-layer perceptron (MLP) classification head fine-tuned on the **FaceForensics++ C23** benchmark. The metrics below report **single-frame classification performance on isolated test face crops** (4,991 evaluated test frames), **not** aggregated multi-frame video classification performance:
 
-| Metric | Value | Evaluation Set |
+| Metric | Value | Evaluation Unit & Dataset |
 | :--- | :--- | :--- |
-| **ROC-AUC** | **0.8853** | FaceForensics++ C23 Isolated Test Set |
-| **PR-AUC** | **0.9686** | FaceForensics++ C23 Isolated Test Set |
-| **Accuracy** | **79.68%** | FaceForensics++ C23 Isolated Test Set |
-| **Fake Precision** | **94.50%** | FaceForensics++ C23 Isolated Test Set |
-| **Fake Recall (Sensitivity)** | **79.20%** | FaceForensics++ C23 Isolated Test Set |
-| **Specificity** | **81.60%** | FaceForensics++ C23 Isolated Test Set |
-| **F1 Score (Fake)** | **86.18%** | FaceForensics++ C23 Isolated Test Set |
-| **Inference Latency** | **~82ms** | NVIDIA GeForce RTX 3050 Laptop GPU / CUDA |
+| **ROC-AUC** | **0.8853** | Single-frame crops (FaceForensics++ C23 test split) |
+| **PR-AUC** | **0.9686** | Single-frame crops (FaceForensics++ C23 test split) |
+| **Accuracy** | **79.68%** | Single-frame crops (FaceForensics++ C23 test split) |
+| **Fake Precision** | **94.50%** | Single-frame crops (FaceForensics++ C23 test split) |
+| **Fake Recall (Sensitivity)** | **79.20%** | Single-frame crops (FaceForensics++ C23 test split) |
+| **Specificity** | **81.60%** | Single-frame crops (FaceForensics++ C23 test split) |
+| **F1 Score (Fake)** | **86.18%** | Single-frame crops (FaceForensics++ C23 test split) |
+| **Inference Latency** | **~82ms / frame** | NVIDIA GeForce RTX 3050 Laptop GPU / CUDA |
 
-*Note: Preprocessing utilizes MediaPipe FaceDetection (min detection confidence: 0.7, model selection: 1, face margin: 0.4, resolution: 224×224 INTER_LANCZOS4, ImageNet normalization).*
+*Note on Preprocessing: Face crops are extracted via MediaPipe FaceDetection (min detection confidence: 0.7, model selection: 1, face margin: 0.4), resized to 224×224 with cv2.INTER_LANCZOS4 interpolation, and normalized with ImageNet mean and standard deviation.*
+
+*Note on Video Frame-Sampling Optimization: DeepGuard utilizes a forward sequential decoding strategy (`decode_strategy="sequential"`) that eliminates redundant GOP keyframe seeks during scene boundary detection and frame extraction. In comparative benchmarks against the legacy random-access seek baseline (`decode_strategy="legacy"`), this achieved an $\approx 8.1\times$ speedup specifically in video frame sampling and decoding (reducing sampling latency from ~3.64s to ~0.45s on benchmark video sequences). Total end-to-end video analysis latency improved by ~3.5×–4.5×, while single-frame GPU inference latency remains constant at ~82ms per frame on an NVIDIA GeForce RTX 3050 Laptop GPU.*
+
+### ⚠️ Known Video Limitations & Responsible AI Notice
+- **Compression Artifacts & False Positives**: H.264/video compression (such as FaceForensics++ C23 compression) introduces block boundaries and high-frequency quantization artifacts that the convolutional feature extractor may associate with manipulation patterns. Consequently, certain authentic compressed sequences can receive elevated suspicion scores (for example, authentic test video `003.mp4` received an aggregation score of ~0.539, crossing the default decision threshold $\theta = 0.50$).
+- **Frame-Level vs. Video-Level Performance**: High single-frame precision on isolated crops does not prevent temporal false alarms when authentic frames exhibit atypical lighting, motion blur, or compression noise.
+- **Human Review Recommended**: DeepGuard predictions represent automated statistical anomaly indicators. They do not constitute conclusive forensic certainty or legal proof. Independent human expert evaluation is strongly recommended before making consequential decisions.
 
 ---
 
@@ -82,13 +88,13 @@ The deepfake classifier utilizes **EfficientNet-B4** with a custom multi-layer p
 | Feature | Status | Description |
 | :--- | :--- | :--- |
 | **Image Detection** | ✅ Operational | Upload JPEG, PNG, or WebP to detect manipulated facial features with Grad-CAM overlays. |
-| **Video Detection** | ✅ Operational | Intelligent frame sampling, batch GPU inference, temporal aggregation, and keyframe timeline. |
+| **Video Detection** | ✅ Operational | Adaptive scene-aware frame sampling (configurable `min_frames=10`, `max_frames=60`, `target_fps=2.0`; e.g., 31 frames on ~15s test video), ~8.1× frame-sampling speedup over legacy GOP seek decoding, batch GPU inference, temporal aggregation, and keyframe timeline. |
 | **Live Webcam** | ✅ Operational | Browser canvas capture with rolling confidence evaluation and live feedback. |
-| **Grad-CAM Heatmaps** | ✅ Operational | Visual explanations highlight specific facial regions triggering manipulation flags. |
+| **Grad-CAM Heatmaps** | ✅ Operational | Visualizes convolutional gradient activations that most heavily influenced model prediction (interpretable saliency, not pixel-level manipulation proof). |
 | **No-Face Handling** | ✅ Operational | Strictly verifies human face presence; cleanly returns `UNCERTAIN` when no face is found. |
-| **PDF Forensic Reports** | ✅ Operational | Generates downloadable forensic summaries with timings, confidence, and region analysis. |
-| **Audio Detection** | ⏳ Prototype | Audio deepfake detection is implemented at the API/UI integration level, but production inference is disabled pending final AudioDeepFakeCNN production checkpoint. |
-| **Blockchain Verification** | 🔬 Prototype | Includes a Solidity-based `MediaVerification` smart contract prototype (unit-tested locally; not deployed to live public networks). |
+| **PDF Forensic Reports** | ✅ Operational | Generates structured PDF analysis summaries with execution timings, confidence metrics, and heatmap snapshots (non-cryptographically signed). |
+| **Audio Detection** | 🔬 Prototype | Experimental endpoint implemented at the API/UI integration layer. Production inference is inactive pending specialized AudioDeepFakeCNN checkpoint training. |
+| **Blockchain Verification** | 🔬 Prototype | Experimental Solidity `MediaVerification` smart contract prototype with local tests; not deployed to live public networks. |
 
 ---
 
@@ -139,6 +145,11 @@ DeepGuard is built **Native-First**. It executes directly on the host operating 
 - **MongoDB**: Local MongoDB instance listening on `mongodb://127.0.0.1:27017/deepguard`
 - **GPU**: NVIDIA GPU with CUDA driver (verified on NVIDIA GeForce RTX 3050 Laptop GPU)
 
+### Model Checkpoint & Benchmark Datasets
+- **Production Checkpoint**: The primary model checkpoint (`models/efficientnet_b4_deepfake.pt`, SHA-256: `8530dddce89f2228d8b75ef1eb76996517a39f696b8d248003acb02d53f5210f`, 75,191,270 bytes) must be placed in the `models/` directory prior to running the AI service.
+- **Experimental & Research Artifacts**: Intermediate checkpoints (`models/experiments/`) and research notes (`docs/research/`) are intentionally excluded from Git tracking (`.gitignore`).
+- **Benchmark Datasets**: Training and benchmark datasets (e.g. FaceForensics++) are not distributed in this repository due to academic licensing and storage constraints. Authorized researchers must obtain datasets directly from their respective academic custodians.
+
 ### 1. Pre-Flight Environment Audit
 Verify your native host dependencies with the built-in validator script:
 ```powershell
@@ -176,7 +187,7 @@ If you prefer to run services in individual terminals:
 ```powershell
 cd ai-service
 .\venv\Scripts\Activate.ps1
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 #### Step 2: Backend Server (Node.js + Express)
@@ -239,7 +250,7 @@ If containerized delivery is preferred:
 | Method | Endpoint | Description | Auth Required |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/history` | Paginated list of previous scans for the user | Yes |
-| `GET` | `/api/reports/:id/pdf` | Download forensic PDF report with metadata & heatmap | Yes |
+| `GET` | `/api/reports/:id/pdf` | Download analysis summary PDF report with metadata & heatmap | Yes |
 
 ---
 
