@@ -30,8 +30,9 @@ const StatCard = ({ icon: I, label, value, sub }) => (
 export default function Result() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [result,  setResult]  = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [result,      setResult]      = useState(null);
+  const [loading,     setLoading]     = useState(true);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     detectionService.getResult(id)
@@ -44,14 +45,15 @@ export default function Result() {
   if (!result) return null;
 
   const downloadReport = async () => {
+    setDownloading(true);
     try {
-      const blob = await historyService.generateReport(id);
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement("a");
-      a.href = url; a.download = `deepguard-report-${id}.pdf`; a.click();
-      URL.revokeObjectURL(url);
+      await historyService.downloadReport(id, `deepguard-report-${id}.pdf`);
       toast.success("Report downloaded");
-    } catch { toast.error("Could not generate report"); }
+    } catch {
+      toast.error("Could not generate report");
+    } finally {
+      setDownloading(false);
+    }
   };
 
   const deleteResult = async () => {
@@ -74,8 +76,8 @@ export default function Result() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={downloadReport} className="btn-ghost text-xs py-2">
-            <Download size={14} /> PDF Report
+          <button onClick={downloadReport} disabled={downloading} className="btn-ghost text-xs py-2 disabled:opacity-50">
+            <Download size={14} className={downloading ? "animate-pulse" : ""} /> {downloading ? "Generating…" : "PDF Report"}
           </button>
           <button onClick={deleteResult} className="btn-danger text-xs py-2">
             <Trash2 size={14} />

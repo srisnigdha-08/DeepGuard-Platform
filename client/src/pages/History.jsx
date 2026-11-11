@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, Trash2, ExternalLink, ChevronLeft, ChevronRight, Film, Image, Music, Filter } from "lucide-react";
+import { Search, Trash2, ExternalLink, Download, ChevronLeft, ChevronRight, Film, Image, Music, Filter } from "lucide-react";
 import { clsx } from "clsx";
 import toast from "react-hot-toast";
 import { historyService } from "../services/historyService";
@@ -39,6 +39,16 @@ export default function History() {
     if (!confirm("Delete this analysis?")) return;
     try { await historyService.deleteResult(id); toast.success("Deleted"); fetchHistory(); }
     catch { toast.error("Could not delete"); }
+  };
+
+  const handleDownloadReport = async id => {
+    try {
+      toast.loading("Generating PDF…", { id: `pdf-${id}` });
+      await historyService.downloadReport(id);
+      toast.success("Report downloaded", { id: `pdf-${id}` });
+    } catch {
+      toast.error("Could not generate report", { id: `pdf-${id}` });
+    }
   };
 
   return (
@@ -110,6 +120,10 @@ export default function History() {
                   {new Date(item.createdAt).toLocaleDateString()}
                 </p>
                 <div className="flex items-center gap-1">
+                  <button onClick={() => handleDownloadReport(item._id)}
+                    className="p-1.5 rounded hover:bg-surface-200 text-text-muted hover:text-primary-400 transition-colors" title="Download PDF Report">
+                    <Download size={13} />
+                  </button>
                   <Link to={`/result/${item._id}`}
                     className="p-1.5 rounded hover:bg-surface-200 text-text-muted hover:text-primary-400 transition-colors" title="View">
                     <ExternalLink size={13} />

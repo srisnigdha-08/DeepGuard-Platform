@@ -69,8 +69,11 @@ router.get("/analytics", asyncHandler(async (req, res) => {
   });
 }));
 
-// POST /api/reports/generate/:id — generate PDF report
-router.post("/generate/:id", asyncHandler(async (req, res) => {
+// PDF report generation handler
+// WHY support both GET /:id/pdf and POST /generate/:id?
+// GET /:id/pdf matches the REST API specification in README.md and allows direct browser navigation.
+// POST /generate/:id supports legacy and explicit trigger calls from UI components.
+const handleGenerateReport = asyncHandler(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id))
     return res.status(400).json({ success: false, message: "Invalid result ID." });
 
@@ -89,6 +92,15 @@ router.post("/generate/:id", asyncHandler(async (req, res) => {
     `attachment; filename="deepguard-report-${result._id}.pdf"`);
   res.setHeader("Content-Length", pdfBuffer.length);
   res.send(pdfBuffer);
-}));
+});
+
+// GET /api/reports/:id/pdf — download PDF report (per README API spec)
+router.get("/:id/pdf", handleGenerateReport);
+
+// GET /api/reports/generate/:id — alternative GET endpoint
+router.get("/generate/:id", handleGenerateReport);
+
+// POST /api/reports/generate/:id — generate PDF report (legacy/action trigger)
+router.post("/generate/:id", handleGenerateReport);
 
 module.exports = router;
